@@ -73,6 +73,8 @@
   	<!-- EXTRASOURCES -->
     <!-- Loads the Javascript code...-->
     <script src="src/Runtime.js"></script>
+    <script src="src/debug_endo.js"></script>
+    <script src="src/endo01.js"></script>
 
     <script>
 
@@ -125,7 +127,7 @@
             // Calls the runtime
             // First parameter : name of the canvas element
             // Second parameter : path to the cch file. Images and sounds must lay beside this file
-            new Runtime("MMFCanvas", "resources/FNAF1HTML5.cch");
+            window.game = new Runtime("MMFCanvas", "resources/FNAF1HTML5.cch");
         }
         // RUNTIMESTARTEND
     </script>
