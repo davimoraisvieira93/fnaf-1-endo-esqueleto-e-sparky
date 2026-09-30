@@ -50066,42 +50066,71 @@ window['Runtime'] = (function Runtime(__can, __path){
   else window.addEventListener("load", init, false);
 })();
 
-// ====== debug_endo.js (incorporado) - F9 despeja o estado no console ======
-// debug_endo.js - despeja o estado do jogo no console ao apertar F9.
-// Uso: abra o jogo, va ate a camera desejada (ex.: CAM 5), aperte F9,
-// abra o console (F12) e me mande o texto que apareceu.
+// ====== debug_endo.js (incorporado) - F9 despeja o estado; a partir do 2o F9 mostra so o que mudou ======
 (function () {
-  function dump() {
+  var prev = null;
+  function snap() {
     var g = window.game;
-    if (!g || !g.application) { console.log("[debug] window.game nao encontrado"); return; }
-    var app = g.application;
-    var out = {
-      frameIndex: app.currentFrame,
-      frameName: app.frame && app.frame.frameName,
-      globalValues: (app.gValues || []).slice(0, 80),
-      objects: []
-    };
-    var run = app.run;
+    if (!g || !g.application) return null;
+    var app = g.application, run = app.run, list = [];
     if (run && run.rhObjectList) {
       for (var i = 0; i < run.rhObjectList.length; i++) {
         var o = run.rhObjectList[i];
         if (!o) continue;
-        out.objects.push({
-          name: o.hoOiList ? o.hoOiList.oilName : "?",
-          x: o.hoX, y: o.hoY,
-          image: o.roc ? o.roc.rcImage : undefined,
-          layer: o.hoLayer,
-          w: o.hoImgWidth, h: o.hoImgHeight,
-          hidden: o.ros ? ((o.ros.rsFlags & 1) !== 0) : undefined,
+        var r = {
           num: i,
-          values: o.rov && o.rov.rvValues ? o.rov.rvValues.slice(0, 10) : undefined
-        });
+          name: o.hoOiList ? o.hoOiList.oilName : "?",
+          type: o.hoType,
+          x: o.hoX, y: o.hoY,
+          layer: o.hoLayer,
+          img: o.roc ? o.roc.rcImage : undefined
+        };
+        if (o.ros) r.vis = ((o.ros.rsFlags & 0x20) !== 0) && ((o.ros.rsFlags & 1) === 0);
+        if (o.rsTextBuffer !== undefined) r.text = o.rsTextBuffer;
+        if (o.rsValue !== undefined) r.value = o.rsValue;
+        try { if (o.rov && o.rov.rvValues) r.v = o.rov.rvValues.slice(0, 10).join(","); } catch (e) {}
+        try { if (o.rov && o.rov.rvStrings) r.s = o.rov.rvStrings.slice(0, 3).join("|"); } catch (e) {}
+        list.push(r);
       }
     }
-    console.log("[debug] " + JSON.stringify(out));
-    console.log("[debug] objetos: " + out.objects.length);
+    return {
+      frame: app.currentFrame,
+      frameName: app.frame && app.frame.frameName,
+      globals: (app.gValues || []).slice(0, 80),
+      objects: list
+    };
+  }
+  function dump() {
+    var cur = snap();
+    if (!cur) { console.log("[debug] window.game nao encontrado"); return; }
+    if (!prev) {
+      var lines = [];
+      for (var i = 0; i < cur.objects.length; i++) {
+        var o = cur.objects[i];
+        if (o.vis === false) continue;
+        lines.push(JSON.stringify(o));
+      }
+      console.log("[debug] quadro " + cur.frame + " (" + cur.frameName + ") globais=" + JSON.stringify(cur.globals) +
+        " | objetos visiveis/texto: " + lines.length + " de " + cur.objects.length + "\n" + lines.join("\n"));
+    } else {
+      var diffs = [];
+      for (var j = 0; j < cur.objects.length; j++) {
+        var a = prev.byNum[cur.objects[j].num], b = cur.objects[j];
+        if (!a) { diffs.push("NOVO " + JSON.stringify(b)); continue; }
+        var ch = [];
+        for (var k in b) if (k !== "num" && k !== "name" && a[k] !== b[k]) ch.push(k + ": " + a[k] + " -> " + b[k]);
+        if (ch.length) diffs.push("#" + b.num + " " + b.name + " | " + ch.join("; "));
+      }
+      if (JSON.stringify(prev.globals) !== JSON.stringify(cur.globals))
+        diffs.push("GLOBAIS: " + JSON.stringify(prev.globals) + " -> " + JSON.stringify(cur.globals));
+      console.log("[debug] mudancas desde o F9 anterior: " + diffs.length + "\n" + diffs.join("\n"));
+    }
+    cur.byNum = {};
+    for (var n = 0; n < cur.objects.length; n++) cur.byNum[cur.objects[n].num] = cur.objects[n];
+    prev = cur;
   }
   window.addEventListener("keydown", function (e) {
     if (e.key === "F9") { e.preventDefault(); dump(); }
+    if (e.key === "F8") { e.preventDefault(); prev = null; console.log("[debug] zerado: o proximo F9 mostra o estado completo"); }
   });
 })();
