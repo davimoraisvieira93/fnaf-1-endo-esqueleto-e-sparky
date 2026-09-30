@@ -382,7 +382,33 @@
     }
   }
 
+  // ---------- Protecao contra falha de mascara do Runtime ----------
+  // Em troca de frame, o motor pode tentar montar a mascara de clique de uma imagem que
+  // ainda nao carregou (drawImage em algo que nao e imagem). Isso derruba o laco do jogo.
+  // Aqui a falha vira "mascara vazia neste quadro" e o motor tenta de novo no proximo.
+  // O Runtime.js continua sem alteracoes.
+  function patchRuntimeMasks() {
+    try {
+      if (typeof CImage === "undefined" || !CImage.prototype || CImage.prototype.__endoPatched) return;
+      var orig = CImage.prototype.getMask;
+      var empty = (typeof Proxy !== "undefined")
+        ? new Proxy({}, { get: function () { return function () { return false; }; } })
+        : { testPointEx: function () { return false; }, testPoint: function () { return false; } };
+      CImage.prototype.getMask = function () {
+        try {
+          return orig.apply(this, arguments);
+        } catch (e) {
+          this.maskNormal = null;     // nao guarda mascara quebrada
+          this.maskPlatform = null;
+          return empty;
+        }
+      };
+      CImage.prototype.__endoPatched = true;
+    } catch (e) { console.warn("[endo01] nao deu para proteger as mascaras:", e); }
+  }
+
   function init() {
+    patchRuntimeMasks();
     if (!createOverlay()) { console.warn("[endo01] MMFCanvas nao encontrado"); return; }
     loadAssets();
     requestAnimationFrame(draw);
