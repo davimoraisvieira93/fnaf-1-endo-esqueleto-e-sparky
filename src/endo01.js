@@ -70,9 +70,15 @@
       ],
       fps: 20,
       loops: 2,
+      // Duracao minima do jumpscare (ms), mesmo que as imagens ainda nao existam.
+      minMs: 1800,
       shake: 12,
       sound: "endo_jumpscare.mp3"   // "" se nao tiver som
     },
+
+    // Frame do jogo para onde ir quando o Endo te mata (indice do frame).
+    // 3 = "died" (estatica de morte). Se nao for o certo, teste com endo01.kill(n).
+    deathFrame: 3,
 
     // Porta por onde o Endo vem: "left" ou "right".
     doorSide: "left",
@@ -125,7 +131,7 @@
     // Numero da noite (1..7) lido do jogo, ou null para usar CONFIG.night.
     getNight: function (app) { return null; },
     // Chamado quando o jumpscare termina.
-    onJumpscareEnd: function (app) { }
+    onJumpscareEnd: function (app) { killPlayer(app); }
   };
 
   var state = {
@@ -275,6 +281,22 @@
     }
   }
 
+  // ---------- Matar o jogador ----------
+  // Pede ao runtime do Clickteam para ir ao frame de morte (mesmo mecanismo da
+  // acao "Jump to frame"): rhQuit = GOTOLEVEL (3), param = 0x8000 | indice do frame.
+  function killPlayer(app, frame) {
+    var f = (frame === undefined) ? CONFIG.deathFrame : frame;
+    if (!app || !app.run) { console.warn("[endo01] jogo nao encontrado, nao deu para matar"); return; }
+    app.run.rhQuit = 3;
+    app.run.rhQuitParam = 0x8000 | (f & 0x7FFF);
+    console.log("[endo01] matou o jogador -> frame " + f);
+    setTimeout(function () {
+      var a = getApp();
+      console.log("[endo01] agora no frame " + (a && a.currentFrame) + " (" +
+        (a && a.frame && a.frame.frameName) + ")");
+    }, 1500);
+  }
+
   // ---------- Jumpscare ----------
   function startJumpscare() {
     if (state.scare) return;
@@ -293,7 +315,7 @@
   function drawJumpscare(now) {
     var j = CONFIG.jumpscare, frames = j.frames;
     var elapsed = now - state.scare.start;
-    var total = frames.length * j.loops * (1000 / j.fps);
+    var total = Math.max(frames.length * j.loops * (1000 / j.fps), j.minMs || 0);
     if (elapsed >= total) {
       state.scare = null;
       enterStage(0);
@@ -382,6 +404,7 @@
       };
     },
     jumpscare: startJumpscare,
+    kill: function (n) { killPlayer(getApp(), n); },
     reset: function () { state.scare = null; enterStage(0); }
   };
 
