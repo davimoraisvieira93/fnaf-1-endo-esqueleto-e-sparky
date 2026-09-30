@@ -21,8 +21,12 @@
 //   endo01.jumpscare()           -> dispara o jumpscare agora
 (function () {
   var CONFIG = {
-    // Nivel de IA de 0 a 20 (0 = Endo nunca se move).
-    ai: 5,
+    // Nivel de IA de 0 a 20 (0 = Endo nunca se move). Usado se getAi devolver null
+    // e aiByNight nao tiver valor para a noite.
+    ai: 3,
+    // Nivel de IA por noite (indice 0 = noite 1). Preencha com os mesmos valores da Chica.
+    // Use null numa noite para cair no "ai" acima.
+    aiByNight: [null, null, null, null, null, null, null],
     // Noite atual (1 a 7). Se getNight devolver um numero, ele tem prioridade.
     night: 1,
     // Intervalo entre tentativas de movimento (o FNAF 1 usa ~4.97 s).
@@ -113,6 +117,9 @@
       }
       return false;
     },
+    // Nivel de IA lido do jogo (ex.: o mesmo da Chica), ou null para usar aiByNight/ai.
+    // Preencher depois do dump do F9 com os objetos "chica AI".
+    getAi: function (app) { return null; },
     // Numero da noite (1..7) lido do jogo, ou null para usar CONFIG.night.
     getNight: function (app) { return null; },
     // Chamado quando o jumpscare termina.
@@ -198,6 +205,14 @@
     var app = getApp();
     var n = app ? CONFIG.getNight(app) : null;
     return (typeof n === "number" && n >= 1) ? n : CONFIG.night;
+  }
+  function aiLevel() {
+    var app = getApp();
+    var g = app ? CONFIG.getAi(app) : null;
+    if (typeof g === "number" && g >= 0) return g;
+    var t = CONFIG.aiByNight[night() - 1];
+    if (typeof t === "number") return t;
+    return CONFIG.ai;
   }
   function attackSeconds() {
     var t = CONFIG.attackSecByNight;
@@ -314,10 +329,12 @@
   // A cada intervalo sorteia 1..20; se <= nivel, avanca um estagio.
   // Na porta nao se move por aqui: quem manda e o tempo da porta.
   function tick() {
-    if (state.scare || !playing() || CONFIG.ai <= 0) return;
+    if (state.scare || !playing()) return;
+    var ai = aiLevel();
+    if (ai <= 0) return;
     if (state.stage >= doorIdx()) return;
     var roll = 1 + Math.floor(Math.random() * 20);
-    if (roll <= CONFIG.ai) {
+    if (roll <= ai) {
       enterStage(state.stage + 1);
       console.log("[endo01] estagio " + state.stage + " (" + CONFIG.stages[state.stage].id + ")");
     }
@@ -344,6 +361,7 @@
         stage: state.stage,
         id: CONFIG.stages[state.stage].id,
         night: night(),
+        ai: aiLevel(),
         attackLeftSec: d ? +(d.attackLeft / 1000).toFixed(1) : null,
         leaveLeftSec: d && d.leaveLeft !== null ? +(d.leaveLeft / 1000).toFixed(1) : null
       };
