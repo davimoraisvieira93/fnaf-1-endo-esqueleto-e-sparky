@@ -50090,6 +50090,10 @@ window['Runtime'] = (function Runtime(__can, __path){
           name: o.hoOiList ? o.hoOiList.oilName : "?",
           x: o.hoX, y: o.hoY,
           image: o.roc ? o.roc.rcImage : undefined,
+          layer: o.hoLayer,
+          w: o.hoImgWidth, h: o.hoImgHeight,
+          hidden: o.ros ? ((o.ros.rsFlags & 1) !== 0) : undefined,
+          num: i,
           values: o.rov && o.rov.rvValues ? o.rov.rvValues.slice(0, 10) : undefined
         });
       }
