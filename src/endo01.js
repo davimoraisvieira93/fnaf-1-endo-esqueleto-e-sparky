@@ -23,10 +23,12 @@
   var CONFIG = {
     // Nivel de IA de 0 a 20 (0 = Endo nunca se move). Usado se getAi devolver null
     // e aiByNight nao tiver valor para a noite.
-    ai: 3,
+    ai: 1,
     // Nivel de IA por noite (indice 0 = noite 1). Preencha com os mesmos valores da Chica.
     // Use null numa noite para cair no "ai" acima.
-    aiByNight: [null, null, null, null, null, null, null],
+    aiByNight: [1, 2, 3, 4, 6, 8, 10],
+    // Segundos de noite sem nenhum movimento (1 hora do jogo ~ 89 s; 180 s = ate as 2 AM).
+    startDelaySec: 180,
     // Noite atual (1 a 7). Se getNight devolver um numero, ele tem prioridade.
     night: 1,
     // Intervalo entre tentativas de movimento (o FNAF 1 usa ~4.97 s).
@@ -134,6 +136,8 @@
     images: {},
     loaded: 0,
     scare: null,
+    wasPlaying: false,
+    playStart: 0,
     door: null       // { attackLeft, leaveLeft, camWasOpen } (ms) enquanto esta na porta
   };
   var canvas = null, ctx = null, gameCanvas = null, scareAudio = null, lastT = 0;
@@ -278,7 +282,11 @@
     state.door = null;
     console.log("[endo01] JUMPSCARE");
     if (scareAudio) {
-      try { scareAudio.currentTime = 0; scareAudio.play(); } catch (e) {}
+      try {
+        scareAudio.currentTime = 0;
+        var pr = scareAudio.play();
+        if (pr && pr.catch) pr.catch(function () {});
+      } catch (e) {}
     }
   }
 
@@ -329,7 +337,14 @@
   // A cada intervalo sorteia 1..20; se <= nivel, avanca um estagio.
   // Na porta nao se move por aqui: quem manda e o tempo da porta.
   function tick() {
-    if (state.scare || !playing()) return;
+    var isP = playing();
+    if (isP && !state.wasPlaying) {          // comecou uma noite
+      state.playStart = performance.now();
+      enterStage(0);
+    }
+    state.wasPlaying = isP;
+    if (state.scare || !isP) return;
+    if (!state.testMode && performance.now() - state.playStart < CONFIG.startDelaySec * 1000) return;
     var ai = aiLevel();
     if (ai <= 0) return;
     if (state.stage >= doorIdx()) return;
