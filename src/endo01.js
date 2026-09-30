@@ -284,17 +284,22 @@
   // ---------- Matar o jogador ----------
   // Pede ao runtime do Clickteam para ir ao frame de morte (mesmo mecanismo da
   // acao "Jump to frame"): rhQuit = GOTOLEVEL (3), param = 0x8000 | indice do frame.
-  function killPlayer(app, frame) {
+  function killPlayer(app, frame, tries) {
     var f = (frame === undefined) ? CONFIG.deathFrame : frame;
+    tries = tries || 0;
     if (!app || !app.run) { console.warn("[endo01] jogo nao encontrado, nao deu para matar"); return; }
-    app.run.rhQuit = 3;
-    app.run.rhQuitParam = 0x8000 | (f & 0x7FFF);
-    console.log("[endo01] matou o jogador -> frame " + f);
+    var from = app.currentFrame;
+    app.run.rhQuit = 3;                          // LOOPEXIT_GOTOLEVEL
+    app.run.rhQuitParam = 0x8000 | (f & 0x7FFF); // 0x8000 = indice absoluto do frame
+    console.log("[endo01] matou o jogador -> frame " + f + " (tentativa " + (tries + 1) + ")");
+    // Confere se o jogo realmente saiu do frame; se nao, tenta de novo (ate 3 vezes).
     setTimeout(function () {
       var a = getApp();
-      console.log("[endo01] agora no frame " + (a && a.currentFrame) + " (" +
+      var now = a ? a.currentFrame : null;
+      console.log("[endo01] agora no frame " + now + " (" +
         (a && a.frame && a.frame.frameName) + ")");
-    }, 1500);
+      if (a && now === from && tries < 2) killPlayer(a, f, tries + 1);
+    }, 1200);
   }
 
   // ---------- Jumpscare ----------
@@ -408,5 +413,6 @@
     reset: function () { state.scare = null; enterStage(0); }
   };
 
+  console.log("[endo01] versao com morte do jogador (deathFrame=" + CONFIG.deathFrame + ")");
   window.addEventListener("load", init, false);
 })();
