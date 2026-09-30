@@ -68,13 +68,51 @@
       sound: "endo_jumpscare.mp3"   // "" se nao tiver som
     },
 
-    // TODO: preencher depois do dump do F9.
+    // Porta por onde o Endo vem: "left" ou "right".
+    doorSide: "left",
+
+    // Detectado pelos dumps do F9.
     // 'cam5' | 'cam1b' | 'cam7' | 'cam2a' | 'cam2b' | 'office' (camera fechada) | null (outra camera)
-    getCamera: function (app) { return null; },
-    // true so durante a noite (nao no menu / game over).
-    isPlaying: function (app) { return false; },
-    // true se a porta por onde o Endo vem esta fechada.
-    isDoorClosed: function (app) { return false; },
+    getCamera: function (app) {
+      var list = app.run && app.run.rhObjectList;
+      if (!list) return null;
+      var byName = {};
+      for (var i = 0; i < list.length; i++) {
+        var o = list[i];
+        if (o && o.hoOiList) byName[o.hoOiList.oilName] = o;
+      }
+      var follow = byName["control room follow"];
+      var camOpen = follow && follow.rov && follow.rov.rvValues && follow.rov.rvValues[0] === 1;
+      if (!camOpen) return "office";
+      var map = {
+        "5 backstage": "cam5",
+        "1B dining area": "cam1b",
+        "cam 7 bathrooms": "cam7",
+        "cam 2A": "cam2a",
+        "cam 2B": "cam2b"
+      };
+      for (var name in map) {
+        var b = byName[name];
+        if (b && b.roc && b.roc.rcImage === 166) return map[name];
+      }
+      return null;
+    },
+    // true so durante a noite (frame 2 = "Frame 1"; o menu e o frame 0).
+    isPlaying: function (app) { return app.currentFrame === 2; },
+    // true se a porta por onde o Endo vem esta fechada (esq: imagem 102, dir: 118).
+    isDoorClosed: function (app) {
+      var left = CONFIG.doorSide === "left";
+      var name = left ? "left door" : "right door";
+      var closedImg = left ? 102 : 118;
+      var list = app.run && app.run.rhObjectList;
+      if (!list) return false;
+      for (var i = 0; i < list.length; i++) {
+        var o = list[i];
+        if (o && o.hoOiList && o.hoOiList.oilName === name)
+          return !!(o.roc && o.roc.rcImage === closedImg);
+      }
+      return false;
+    },
     // Numero da noite (1..7) lido do jogo, ou null para usar CONFIG.night.
     getNight: function (app) { return null; },
     // Chamado quando o jumpscare termina.
